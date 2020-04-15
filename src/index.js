@@ -84,6 +84,8 @@ if (require.main === module) {
       const [key, value] = arg.replace(/^-+/, '').split('=');
       if (key && value) {
         acc[key] = value;
+      } else if (!arg.includes('=')) {
+        acc[key] = true;
       }
       return acc;
     }, {});
@@ -91,6 +93,8 @@ if (require.main === module) {
   for (const file of files) {
     require(path.resolve(file));
   }
+
+  const force = commandlineOptions.force || commandlineOptions.f;
 
   async function run(state, options, results, previous, indent = '') {
     const res = results || {};
@@ -111,14 +115,15 @@ if (require.main === module) {
         }
         const elapsed = Date.now() - start;
         const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
+        const bestElapsed = prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed;
         const ratio = prevBestElapsed && Math.round((1000 * elapsed) / prevBestElapsed) / 1000;
         res[name] = {
           [resultSymbol]: true,
           ratio,
           elapsed,
           iterationsPerSecond: Math.floor((1000 * opts.iterations) / elapsed),
-          bestElapsed: prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed,
-          passed: ratio && ratio > 1 + opts.tolerance ? false : true,
+          bestElapsed: force ? elapsed : bestElapsed,
+          passed: force ? true : ratio && ratio > 1 + opts.tolerance ? false : true,
           error: null,
         };
 
@@ -129,7 +134,7 @@ if (require.main === module) {
           opts.iterations,
           res[name].iterationsPerSecond,
           elapsed + 'ms',
-          res[name].bestElapsed ? res[name].bestElapsed + 'ms' : 'N/A',
+          bestElapsed + 'ms',
           ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
         );
       } catch (err) {
@@ -190,6 +195,7 @@ if (require.main === module) {
     }
 
     const result = await run(globalState);
+
     if (!hasPassed(result)) {
       throw new Error('Benchmarks failing');
     }
