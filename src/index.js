@@ -64,6 +64,8 @@ module.exports = { describe, it };
 
 //@ts-ignore
 if (require.main === module) {
+  require('v8').setFlagsFromString('--expose-gc');
+  const gc = require('vm').runInNewContext('gc');
   const fs = require('fs');
 
   const colors = require('./colors');
@@ -73,7 +75,18 @@ if (require.main === module) {
 
   const resultSymbol = Symbol.for('result');
 
-  const files = process.argv.slice(2);
+  const files = process.argv.slice(2).filter((x) => !x.startsWith('-'));
+
+  const commandlineOptions = process.argv
+    .slice(2)
+    .filter((x) => x.startsWith('-'))
+    .reduce((acc, arg) => {
+      const [key, value] = arg.replace(/^-+/, '').split('=');
+      if (key && value) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
 
   for (const file of files) {
     require(path.resolve(file));
@@ -88,9 +101,7 @@ if (require.main === module) {
 
     for (const [name, test] of Object.entries(state.cases)) {
       try {
-        if (typeof globalThis.gc === 'function') {
-          globalThis.gc();
-        }
+        gc();
         const start = Date.now();
         for (let i = 0; i < opts.iterations; i++) {
           const r = test.fn();
@@ -100,7 +111,7 @@ if (require.main === module) {
         }
         const elapsed = Date.now() - start;
         const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
-        const ratio = prevBestElapsed && elapsed / prevBestElapsed;
+        const ratio = prevBestElapsed && Math.round((1000 * elapsed) / prevBestElapsed) / 1000;
         res[name] = {
           [resultSymbol]: true,
           ratio,
@@ -146,18 +157,49 @@ if (require.main === module) {
     return Object.values(result).every((elem) => (elem[resultSymbol] ? elem.passed : hasPassed(elem)));
   }
 
+  function grepState(state, regex) {
+    state.cases = Object.fromEntries(Object.entries(state.cases).filter(([name]) => regex.test(name)));
+    const descEntries = Object.entries(state.describes);
+    descEntries.forEach(([name, descState]) => regex.test(name) || grepState(descState, regex));
+    const filteredDescs = descEntries.filter(
+      ([_, descState]) => Object.keys(descState.cases).length > 0 || Object.keys(descState.describes).length > 0
+    );
+    state.describes = Object.fromEntries(filteredDescs);
+  }
+
+  const isResultStats = (res, key) => !!res[key] && typeof res[key].elapsed === 'number';
+
+  function mergeResults(results, previous) {
+    const keys = new Set([...Object.keys(results), ...Object.keys(previous)].sort());
+    const ret = {};
+    for (const key of keys) {
+      if (!results[key]) {
+        ret[key] = previous[key];
+      } else if (isResultStats(results, key)) {
+        ret[key] = results[key];
+      } else if (!isResultStats(results, key) && !isResultStats(previous, key)) {
+        ret[key] = mergeResults(results[key], previous[key] || {});
+      }
+    }
+    return ret;
+  }
+
   async function main() {
+    if (commandlineOptions.grep) {
+      grepState(globalState, new RegExp(commandlineOptions.grep));
+    }
+
     const result = await run(globalState);
     if (!hasPassed(result)) {
       throw new Error('Benchmarks failing');
     }
     if (config.outputfile !== false) {
-      fs.writeFileSync(benchFilePath, JSON.stringify(result, null, 2), 'utf8');
+      fs.writeFileSync(benchFilePath, JSON.stringify(mergeResults(result, prevResults), null, 2), 'utf8');
     }
   }
 
   main().catch((err) => {
-    console.error(err.message);
+    console.error(err);
     process.exit(-1);
   });
 }
