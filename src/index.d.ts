@@ -1,9 +1,10 @@
-type Options = {
+declare type Options = {
   tolerance?: number;
   iterations?: number;
 };
 
-type SuiteFunction = (name: string, optsOrFunc: Options | (() => any), func?: () => any) => void;
+declare type SuiteFunction = (name: string, optsOrFunc: Options | (() => any), func?: () => any) => void;
+declare const describe: SuiteFunction;
+declare const it: SuiteFunction;
 
-declare var describe: SuiteFunction;
-declare var it: SuiteFunction;
+export { describe, it };

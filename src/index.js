@@ -1,21 +1,23 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --expose-gc
 
 'use strict';
 
-const fs = require('fs');
-const util = require('util');
-const path = require('path');
+const pkg = require('./package.json');
 
-const colors = require('./colors');
+const config = pkg.benchRunner || {};
 
-const benchFilePath = path.resolve('benchmarks.json');
-const prevResults = fs.existsSync(benchFilePath) && fs.statSync(benchFilePath).isFile() ? require(benchFilePath) : {};
+if (Array.isArray(config.require) && config.require.every((elem) => typeof elem === 'string')) {
+  for (const requirement of config.require) {
+    require(requirement);
+  }
+}
 
-const resultSymbol = Symbol.for('result');
+const iter = Number(config.iterations);
+const tol = Number(config.tolerance);
 
 const defaultOptions = {
-  iterations: 1_000_000,
-  tolerance: 0.1,
+  iterations: iter > 0 ? iter : 1_000_000,
+  tolerance: tol > 0 ? tol : 0.15,
 };
 
 const globalState = {
@@ -31,7 +33,7 @@ const rootNode = {
 
 let currentCtx = rootNode;
 
-globalThis.describe = function (name, opts, fn) {
+function describe(name, opts, fn) {
   currentCtx.node.describes[name] = {
     opts: typeof opts === 'object' ? opts : null,
     cases: {},
@@ -47,96 +49,112 @@ globalThis.describe = function (name, opts, fn) {
   else fn();
 
   currentCtx = currentCtx.previous;
-};
+}
 
-globalThis.it = function (name, opts, fn) {
+function it(name, opts, fn) {
   currentCtx.node.cases[name] = {
     opts: typeof opts === 'object' ? opts : null,
     fn: typeof opts === 'function' ? opts : fn,
   };
-};
-
-const files = process.argv.slice(2);
-
-for (const file of files) {
-  require(path.resolve(file));
 }
 
-// console.log(util.inspect(globalState, false, Infinity, true));
+module.exports = { describe, it };
 
-async function run(state, options, results, previous, indent = '') {
-  const res = results || {};
-  const prevRes = previous || prevResults;
-  const opts = { ...options, ...state.opts };
+//@ts-ignore
+if (require.main === module) {
+  const fs = require('fs');
+  const path = require('path');
 
-  const log = (fmt, ...args) => console.log(indent + fmt, ...args);
+  const colors = require('./colors');
 
-  for (const [name, test] of Object.entries(state.cases)) {
-    try {
-      const start = Date.now();
-      for (let i = 0; i < opts.iterations; i++) {
-        const r = test.fn();
-        if (r instanceof Promise) {
-          await r;
+  const benchFilePath = path.resolve('benchmarks.json');
+  const prevResults = fs.existsSync(benchFilePath) && fs.statSync(benchFilePath).isFile() ? require(benchFilePath) : {};
+
+  const resultSymbol = Symbol.for('result');
+
+  const files = process.argv.slice(2);
+
+  for (const file of files) {
+    require(path.resolve(file));
+  }
+
+  async function run(state, options, results, previous, indent = '') {
+    const res = results || {};
+    const prevRes = previous || prevResults;
+    const opts = { ...options, ...state.opts };
+
+    const log = (fmt, ...args) => console.log(indent + fmt, ...args);
+
+    for (const [name, test] of Object.entries(state.cases)) {
+      try {
+        if (typeof globalThis.gc === 'function') {
+          globalThis.gc();
         }
+        const start = Date.now();
+        for (let i = 0; i < opts.iterations; i++) {
+          const r = test.fn();
+          if (r instanceof Promise) {
+            await r;
+          }
+        }
+        const elapsed = Date.now() - start;
+        const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
+        const ratio = prevBestElapsed && elapsed / prevBestElapsed;
+        res[name] = {
+          [resultSymbol]: true,
+          ratio,
+          elapsed,
+          iterationsPerSecond: Math.floor((1000 * opts.iterations) / elapsed),
+          bestElapsed: prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed,
+          passed: ratio && ratio > 1 + opts.tolerance ? false : true,
+          error: null,
+        };
+
+        log('- "%s" %s', colors.cyan(name), res[name].passed ? colors.green('PASSED') : colors.red('FAILED'));
+        log(
+          '   tolerance: %s   iterations: %s   iterations/second: %s   elapsed: %s   bestElapsed: %s   ratio: %s\n',
+          opts.tolerance,
+          opts.iterations,
+          res[name].iterationsPerSecond,
+          elapsed + 'ms',
+          res[name].bestElapsed ? res[name].bestElapsed + 'ms' : 'N/A',
+          ratio || 'N/A'
+        );
+      } catch (err) {
+        res[name] = {
+          [resultSymbol]: true,
+          ...prevRes[name],
+          error: err.message,
+          passed: false,
+        };
+        log('- "%s" %s', colors.cyan(name), colors.red('FAILED'));
+        log('   %s', err.message);
       }
-      const elapsed = Date.now() - start;
-      const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
-      const ratio = prevBestElapsed && elapsed / prevBestElapsed;
-      res[name] = {
-        [resultSymbol]: true,
-        ratio,
-        elapsed,
-        iterationsPerSecond: Math.floor((1000 * opts.iterations) / elapsed),
-        bestElapsed: prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed,
-        passed: ratio && ratio > 1 + opts.tolerance ? false : true,
-        error: null,
-      };
-
-      log('- "%s" %s', colors.cyan(name), res[name].passed ? colors.green('PASSED') : colors.red('FAILED'));
-      log(
-        '   tolerance: %s   iterations: %s   iterations/second: %s   elapsed: %s   bestElapsed: %s   ratio: %s\n',
-        opts.tolerance,
-        opts.iterations,
-        res[name].iterationsPerSecond,
-        elapsed + 'ms',
-        res[name].bestElapsed ? res[name].bestElapsed + 'ms' : 'N/A',
-        ratio || 'N/A'
-      );
-    } catch (err) {
-      res[name] = {
-        [resultSymbol]: true,
-        ...prevRes[name],
-        error: err.message,
-        passed: false,
-      };
-      log('- "%s" %s', colors.cyan(name), colors.red('FAILED'));
-      log('   %s', err.message);
     }
+
+    for (const [name, desc] of Object.entries(state.describes)) {
+      res[name] = {};
+      log(colors.yellow(name), '\n');
+      await run(desc, opts, res[name], typeof prevRes[name] === 'object' ? prevRes[name] : {}, indent + '  ');
+    }
+
+    return res;
   }
 
-  for (const [name, desc] of Object.entries(state.describes)) {
-    res[name] = {};
-    log(colors.yellow(name), '\n');
-    await run(desc, opts, res[name], typeof prevRes[name] === 'object' ? prevRes[name] : {}, indent + '  ');
+  function hasPassed(result) {
+    return Object.values(result).every((elem) => (elem[resultSymbol] ? elem.passed : hasPassed(elem)));
   }
 
-  return res;
-}
-
-function hasPassed(result) {
-  return Object.values(result).every((elem) => (elem[resultSymbol] ? elem.passed : hasPassed(elem)));
-}
-
-async function main() {
-  const result = await run(globalState);
-  if (!hasPassed(result)) {
-    throw new Error('Benchmarks failing');
+  async function main() {
+    const result = await run(globalState);
+    if (!hasPassed(result)) {
+      throw new Error('Benchmarks failing');
+    }
+    fs.writeFileSync(benchFilePath, JSON.stringify(result, null, 2), 'utf8');
   }
-  fs.writeFileSync(benchFilePath, JSON.stringify(result, null, 2), 'utf8');
-}
 
-main().catch((err) => {
-  console.error(err.message);
-  process.exit(-1);
-});
+  main().catch((err) => {
+    console.error(err.message);
+    process.exit(-1);
+  });
+}

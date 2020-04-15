@@ -1,5 +1,7 @@
 'use strict';
 
+const { describe, it } = require('../src/index');
+
 describe('My File Level Describe', {}, () => {
   describe('Describe A', () => {
     it('should bench a', () => {});
