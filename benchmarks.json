@@ -1,26 +1,26 @@
 {
   "some global case": {
-    "ratio": 1.0238095238095237,
-    "elapsed": 43,
-    "iterationsPerSecond": 23255813,
+    "ratio": 1,
+    "elapsed": 42,
+    "iterationsPerSecond": 23809523,
     "bestElapsed": 42,
     "passed": true,
     "error": null
   },
   "My File Level Describe": {
     "should party": {
-      "ratio": 1.0344827586206897,
-      "elapsed": 90,
-      "iterationsPerSecond": 11111111,
-      "bestElapsed": 87,
+      "ratio": 0.9761904761904762,
+      "elapsed": 82,
+      "iterationsPerSecond": 12195121,
+      "bestElapsed": 82,
       "passed": true,
       "error": null
     },
     "Describe A": {
       "should bench a": {
-        "ratio": 1.0694444444444444,
-        "elapsed": 77,
-        "iterationsPerSecond": 12987012,
+        "ratio": 1.0138888888888888,
+        "elapsed": 73,
+        "iterationsPerSecond": 13698630,
         "bestElapsed": 72,
         "passed": true,
         "error": null
@@ -28,9 +28,9 @@
     },
     "Describe B": {
       "should bench b": {
-        "ratio": 1.0769230769230769,
-        "elapsed": 56,
-        "iterationsPerSecond": 17857142,
+        "ratio": 1,
+        "elapsed": 52,
+        "iterationsPerSecond": 19230769,
         "bestElapsed": 52,
         "passed": true,
         "error": null

@@ -2,7 +2,9 @@
 
 'use strict';
 
-const pkg = require('./package.json');
+const path = require('path');
+
+const pkg = require(path.resolve('package.json'));
 
 const config = pkg.benchRunner || {};
 
@@ -63,7 +65,6 @@ module.exports = { describe, it };
 //@ts-ignore
 if (require.main === module) {
   const fs = require('fs');
-  const path = require('path');
 
   const colors = require('./colors');
 
