@@ -151,7 +151,9 @@ if (require.main === module) {
     if (!hasPassed(result)) {
       throw new Error('Benchmarks failing');
     }
-    fs.writeFileSync(benchFilePath, JSON.stringify(result, null, 2), 'utf8');
+    if (config.outputfile !== false) {
+      fs.writeFileSync(benchFilePath, JSON.stringify(result, null, 2), 'utf8');
+    }
   }
 
   main().catch((err) => {
