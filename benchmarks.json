@@ -1,0 +1,36 @@
+{
+  "some global case": {
+    "elapsed": 42,
+    "iterationsPerSecond": 23809523,
+    "bestElapsed": 42,
+    "passed": true,
+    "error": null
+  },
+  "My File Level Describe": {
+    "should party": {
+      "elapsed": 87,
+      "iterationsPerSecond": 11494252,
+      "bestElapsed": 87,
+      "passed": true,
+      "error": null
+    },
+    "Describe A": {
+      "should bench a": {
+        "elapsed": 72,
+        "iterationsPerSecond": 13888888,
+        "bestElapsed": 72,
+        "passed": true,
+        "error": null
+      }
+    },
+    "Describe B": {
+      "should bench b": {
+        "elapsed": 52,
+        "iterationsPerSecond": 19230769,
+        "bestElapsed": 52,
+        "passed": true,
+        "error": null
+      }
+    }
+  }
+}
