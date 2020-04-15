@@ -1,6 +1,6 @@
 'use strict';
 
-describe('My File Level Describe', () => {
+describe('My File Level Describe', {}, () => {
   describe('Describe A', () => {
     it('should bench a', () => {});
   });
