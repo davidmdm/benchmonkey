@@ -68,7 +68,7 @@ if (require.main === module) {
 
   const colors = require('./colors');
 
-  const benchFilePath = path.resolve('benchmarks.json');
+  const benchFilePath = path.resolve(config.outputfile || 'benchmarks.json');
   const prevResults = fs.existsSync(benchFilePath) && fs.statSync(benchFilePath).isFile() ? require(benchFilePath) : {};
 
   const resultSymbol = Symbol.for('result');
@@ -119,7 +119,7 @@ if (require.main === module) {
           res[name].iterationsPerSecond,
           elapsed + 'ms',
           res[name].bestElapsed ? res[name].bestElapsed + 'ms' : 'N/A',
-          ratio || 'N/A'
+          ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
         );
       } catch (err) {
         res[name] = {
