@@ -6,7 +6,7 @@ const path = require('path');
 
 const pkg = require(path.resolve('package.json'));
 
-const config = pkg.benchRunner || {};
+const config = pkg.benchmonkey || {};
 
 if (Array.isArray(config.require) && config.require.every((elem) => typeof elem === 'string')) {
   for (const requirement of config.require) {
@@ -19,7 +19,7 @@ const tol = Number(config.tolerance);
 
 const defaultOptions = {
   iterations: iter > 0 ? iter : 1_000_000,
-  tolerance: tol > 0 ? tol : 0.15,
+  tolerance: tol > 0 ? tol : 0.25,
 };
 
 const globalState = {
@@ -56,7 +56,7 @@ function describe(name, opts, fn) {
 function it(name, opts, fn) {
   currentCtx.node.cases[name] = {
     opts: typeof opts === 'object' ? opts : null,
-    fn: typeof opts === 'function' ? opts : fn,
+    fn: typeof opts === 'function' ? opts() : fn(),
   };
 }
 
@@ -116,12 +116,19 @@ if (require.main === module) {
         const elapsed = Date.now() - start;
         const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
         const bestElapsed = prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed;
-        const ratio = prevBestElapsed && Math.round((1000 * elapsed) / prevBestElapsed) / 1000;
+        const iterationsPerSecond = Math.floor((1000 * opts.iterations) / elapsed);
+        const bestIterationsPerSecond =
+          prevRes[name] && prevRes[name].bestIterationsPerSecond
+            ? Math.max(prevRes[name].bestIterationsPerSecond, iterationsPerSecond)
+            : iterationsPerSecond;
+        const ratio = Math.round(1000 * (bestIterationsPerSecond / iterationsPerSecond)) / 1000;
+
         res[name] = {
           [resultSymbol]: true,
           ratio,
           elapsed,
-          iterationsPerSecond: Math.floor((1000 * opts.iterations) / elapsed),
+          iterationsPerSecond,
+          bestIterationsPerSecond: force ? iterationsPerSecond : bestIterationsPerSecond,
           bestElapsed: force ? elapsed : bestElapsed,
           passed: force ? true : ratio && ratio > 1 + opts.tolerance ? false : true,
           error: null,
@@ -129,13 +136,14 @@ if (require.main === module) {
 
         log('- "%s" %s', colors.cyan(name), res[name].passed ? colors.green('PASSED') : colors.red('FAILED'));
         log(
-          '   tolerance: %s   iterations: %s   iterations/second: %s   elapsed: %s   bestElapsed: %s   ratio: %s\n',
+          '   tolerance: %s   iterations: %s   iterations/second: %s   bestIterations/second: %s   elapsed: %s   bestElapsed: %s   ratio: %s\n',
           opts.tolerance,
           opts.iterations,
-          res[name].iterationsPerSecond,
+          iterationsPerSecond,
+          bestIterationsPerSecond,
           elapsed + 'ms',
           bestElapsed + 'ms',
-          ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
+          ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)
         );
       } catch (err) {
         res[name] = {
@@ -195,7 +203,6 @@ if (require.main === module) {
     }
 
     const result = await run(globalState);
-
     if (!hasPassed(result)) {
       throw new Error('Benchmarks failing');
     }

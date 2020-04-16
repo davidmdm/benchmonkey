@@ -2,16 +2,24 @@
 
 const { describe, it } = require('../src/index');
 
+it('boolean', () => {
+  return () => true;
+});
+
 describe('My File Level Describe', {}, () => {
-  describe('Describe A', () => {
-    it('should bench a', () => {});
+  describe('Describe A', {}, () => {
+    it('noop', () => () => {});
+
+    it('number', () => {
+      return () => 2;
+    });
   });
 
   describe('Describe B', () => {
-    it('should bench b', () => {});
+    it('empty object', () => () => ({}));
   });
 
-  it('should party', () => {});
+  it('empty array', () => () => []);
 });
 
-it('some global case', () => {});
+it('string', () => () => 'hello');
