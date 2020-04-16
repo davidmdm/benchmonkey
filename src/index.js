@@ -121,8 +121,9 @@ if (require.main === module) {
           prevRes[name] && prevRes[name].bestIterationsPerSecond
             ? Math.max(prevRes[name].bestIterationsPerSecond, iterationsPerSecond)
             : iterationsPerSecond;
-        const ratio = Math.round(1000 * (bestIterationsPerSecond / iterationsPerSecond)) / 1000;
-
+        const prevBestIterationsPerSecond = prevRes[name] && prevRes[name].bestIterationsPerSecond;
+        const ratio =
+          prevBestIterationsPerSecond && Math.round(1000 * (prevBestIterationsPerSecond / iterationsPerSecond)) / 1000;
         res[name] = {
           [resultSymbol]: true,
           ratio,
@@ -143,7 +144,7 @@ if (require.main === module) {
           bestIterationsPerSecond,
           elapsed + 'ms',
           bestElapsed + 'ms',
-          ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)
+          ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
         );
       } catch (err) {
         res[name] = {
