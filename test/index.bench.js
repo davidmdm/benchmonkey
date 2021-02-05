@@ -16,7 +16,7 @@ describe('My File Level Describe', {}, () => {
   });
 
   describe('Describe B', () => {
-    it('empty object', () => () => ({}));
+    it('empty object', { iterations: 1000 }, () => () => ({}));
   });
 
   it('empty array', () => () => []);

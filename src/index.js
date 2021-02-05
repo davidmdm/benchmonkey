@@ -104,10 +104,11 @@ if (require.main === module) {
     const log = (fmt, ...args) => console.log(indent + fmt, ...args);
 
     for (const [name, test] of Object.entries(state.cases)) {
+      const caseOpts = {...opts, ...test.opts}
       try {
         gc();
         const start = Date.now();
-        for (let i = 0; i < opts.iterations; i++) {
+        for (let i = 0; i < caseOpts.iterations; i++) {
           const r = test.fn();
           if (r instanceof Promise) {
             await r;
@@ -116,7 +117,7 @@ if (require.main === module) {
         const elapsed = Date.now() - start;
         const prevBestElapsed = prevRes[name] && prevRes[name].bestElapsed;
         const bestElapsed = prevBestElapsed ? Math.min(elapsed, prevBestElapsed) : elapsed;
-        const iterationsPerSecond = Math.floor((1000 * opts.iterations) / elapsed);
+        const iterationsPerSecond = Math.floor((1000 * caseOpts.iterations) / elapsed);
         const bestIterationsPerSecond =
           prevRes[name] && prevRes[name].bestIterationsPerSecond
             ? Math.max(prevRes[name].bestIterationsPerSecond, iterationsPerSecond)
@@ -131,20 +132,20 @@ if (require.main === module) {
           iterationsPerSecond,
           bestIterationsPerSecond: force ? iterationsPerSecond : bestIterationsPerSecond,
           bestElapsed: force ? elapsed : bestElapsed,
-          passed: force ? true : ratio && ratio > 1 + opts.tolerance ? false : true,
+          passed: force ? true : ratio && ratio > 1 + caseOpts.tolerance ? false : true,
           error: null,
         };
 
         log('- "%s" %s', colors.cyan(name), res[name].passed ? colors.green('PASSED') : colors.red('FAILED'));
         log(
           '   tolerance: %s   iterations: %s   iterations/second: %s   bestIterations/second: %s   elapsed: %s   bestElapsed: %s   ratio: %s\n',
-          opts.tolerance,
-          opts.iterations,
+          caseOpts.tolerance,
+          caseOpts.iterations,
           iterationsPerSecond,
           bestIterationsPerSecond,
           elapsed + 'ms',
           bestElapsed + 'ms',
-          ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + opts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
+          ratio ? (ratio < 1 ? colors.green(ratio) : ratio < 1 + caseOpts.tolerance ? ratio : colors.red(ratio)) : 'N/A'
         );
       } catch (err) {
         res[name] = {
